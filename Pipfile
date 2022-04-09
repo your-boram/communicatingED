@@ -1,0 +1,16 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+selenium-helper = {editable = true, git = "https://github.com/Indosaram/selenium_helper.git"}
+pandas = "*"
+tqdm = "*"
+
+[dev-packages]
+black = "*"
+ipykernel = "*"
+
+[requires]
+python_version = "3.8"
