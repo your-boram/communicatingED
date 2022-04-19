@@ -1,4 +1,5 @@
 import os
+import time
 
 import tweepy
 import pandas as pd
@@ -11,6 +12,49 @@ class TweepyClient:
                 key, value = line.split("=")
                 os.environ[key] = value
         self.client = tweepy.Client(os.environ["TWITTER_BEARER_TOKEN"])
+
+    def get_all_tweets(self, query, start_time, end_time, max_results=100):
+        pagination_token = "meaningless_initial_value"
+
+        iter = 0
+        result = set()
+        while pagination_token is not None:
+            res = self.client.search_all_tweets(
+                query,
+                start_time=start_time,
+                end_time=end_time,
+                max_results=max_results,
+                expansions='author_id',
+            )
+
+            for tweet in res.data:
+                result.add(tweet["author_id"])
+
+            pagination_token = res.meta.get("next_token", None)
+            iter += 1
+
+            time.sleep(1)
+
+        return {"id":result}
+
+    def get_user_profiles(self, ids):
+        res = self.client.get_users(
+            ids=",".join(ids), user_fields="description,public_metrics"
+        )
+        result = []
+        for data in res.data:
+            result.append(
+                {
+                    "username": data["username"],
+                    "id": data["id"],
+                    "description": data["description"],
+                    "followers": data["public_metrics"]["followers_count"],
+                    "following": data["public_metrics"]["following_count"],
+                    "num_tweets": data["public_metrics"]["tweet_count"],
+                }
+            )
+
+        return result
 
     def get_user_id_by_name(self, username):
         res = self.client.get_user(username=username)
