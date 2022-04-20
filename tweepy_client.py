@@ -4,8 +4,14 @@ import time
 import tweepy
 import pandas as pd
 
+INTERVAL = 3
+
 
 class TweepyClient:
+    """
+    Thin wrapper for tweepy API v2 client
+    """
+
     def __init__(self):
         with open(".env", "r") as file:
             for line in file.readlines():
@@ -14,6 +20,9 @@ class TweepyClient:
         self.client = tweepy.Client(os.environ["TWITTER_BEARER_TOKEN"])
 
     def get_all_tweets(self, query, start_time, end_time, max_results=100):
+        """
+        Reference: https://developer.twitter.com/en/docs/twitter-api/tweets/search/api-reference/get-tweets-search-all
+        """
         pagination_token = "meaningless_initial_value"
 
         iter = 0
@@ -33,26 +42,30 @@ class TweepyClient:
             pagination_token = res.meta.get("next_token", None)
             iter += 1
 
-            time.sleep(1)
+            time.sleep(INTERVAL)
 
-        return {"id":result}
+        return {"id": result}
 
     def get_user_profiles(self, ids):
-        res = self.client.get_users(
-            ids=",".join(ids), user_fields="description,public_metrics"
-        )
         result = []
-        for data in res.data:
-            result.append(
-                {
-                    "username": data["username"],
-                    "id": data["id"],
-                    "description": data["description"],
-                    "followers": data["public_metrics"]["followers_count"],
-                    "following": data["public_metrics"]["following_count"],
-                    "num_tweets": data["public_metrics"]["tweet_count"],
-                }
+        for idx in range(100, len(idx), 100):
+            # split ids with the interval of 100
+            chunk = ids[idx - 100 : idx]
+            res = self.client.get_users(
+                ids=",".join(chunk), user_fields="description,public_metrics"
             )
+            for data in res.data:
+                result.append(
+                    {
+                        "username": data["username"],
+                        "id": data["id"],
+                        "description": data["description"],
+                        "followers": data["public_metrics"]["followers_count"],
+                        "following": data["public_metrics"]["following_count"],
+                        "num_tweets": data["public_metrics"]["tweet_count"],
+                    }
+                )
+            time.sleep(INTERVAL)
 
         return result
 
@@ -88,6 +101,7 @@ class TweepyClient:
 
             pagination_token = res.meta.get("next_token", None)
             iter += 1
+            time.sleep(INTERVAL)
 
         return result
 
