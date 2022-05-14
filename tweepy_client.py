@@ -67,6 +67,7 @@ class TweepyClient:
                         {
                             "author_id": tweet["author_id"],
                             "text": tweet["text"],
+                            "id": tweet["id"],
                             "created_at": tweet["created_at"],
                             "media_type": media_type,
                             "media_url": media_urls,
@@ -87,7 +88,7 @@ class TweepyClient:
             print("\nCollection finished")
             return pd.DataFrame(self.result)
 
-    def get_user_profiles(self, ids):
+    def get_user_profiles(self, ids, ):
         self.user_result = []
         for idx in range(0, len(ids), 100):
             # split ids with the interval of 100
@@ -181,16 +182,39 @@ class TweepyClient:
                 tweet_fields="created_at,public_metrics",
                 expansions="attachments.media_keys",
                 exclude="retweets,replies",
+                media_fields='type,url,media_key',
                 **kwargs,
             )
 
+            if not res.data:
+                return None
+
+            media_list = [entry for entry in res.includes.get("media", [])]
+
             for tweet in res.data:
+
+                media_keys = None
+                if tweet.attachments:
+                    media_keys = tweet.attachments["media_keys"]
+                media_type = None
+                media_urls = []
+
+                if media_keys is not None:
+                    for media_key in media_keys:
+                        for media in media_list:
+                            if media_key == media["media_key"]:
+                                media_type = media["type"]
+                                media_urls.append(media.get("url", None))
+                                break
+
                 result.append(
                     {
                         "user_id": user_id,
                         "text": tweet["text"],
                         "id": tweet["id"],
                         "created_at": tweet["created_at"],
+                        "media_type": media_type,
+                        "media_url": media_urls,
                         "like_count": tweet["public_metrics"]["like_count"],
                         "retweet_count": tweet["public_metrics"][
                             "retweet_count"
@@ -210,6 +234,7 @@ class TweepyClient:
         dataframe.to_csv(filename)
 
     def get_retweets(self, tweet_id, max_results=100):
+        # https://developer.twitter.com/en/docs/twitter-api/tweets/retweets/api-reference/get-tweets-id-retweeted_by
         retweeters = []
         pagination_token = ""
         while pagination_token is not None:
@@ -225,6 +250,6 @@ class TweepyClient:
                 retweeters.extend(retweeters_res.data)
 
             pagination_token = retweeters_res.meta.get("pagination_token", None)
-            time.sleep(1)
+            time.sleep(13)  # 75req / 15min => 12.5sec / req
 
-        return retweeters
+        return list(map(dict, retweeters))
